@@ -110,6 +110,10 @@ ALTER TABLE NOTIFICATIONS
   ADD CONSTRAINT FK_USERS_TO_NOTIFICATIONS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
+ALTER TABLE CLAIMS MODIFY status 
+ENUM('pending','approved','rejected','returned','cancel_requested') 
+NOT NULL DEFAULT 'pending';
+
 -- Default admin account (password: Admin@1234)
 INSERT INTO USERS (full_name, email, password, role, id_number, contact)
 VALUES (
