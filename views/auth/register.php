@@ -1,12 +1,20 @@
 <?php
+// Page title for the layout
 $title = "Register";
+
+// Load required dependencies
 require_once __DIR__ . '/../../autoload.php';
+
+// Redirect to dashboard if already logged in
 requireGuest();
+
+// Start output buffering
 ob_start();
 ?>
 
+<!-- Registration page HTML content -->
 <div class="tt-auth-wrap">
-    <!-- Brand Panel -->
+    <!-- Left Panel: Branding & Features -->
     <div class="tt-auth-brand">
         <div class="tt-auth-brand-inner">
             <div class="tt-brand-logo">Trace<span>Track</span></div>
@@ -39,14 +47,15 @@ ob_start();
         </div>
     </div>
 
-    <!-- Form Panel -->
+    <!-- Right Panel: Registration Form -->
     <div class="tt-auth-form-side">
         <div class="tt-auth-card">
             <h2>Create Account</h2>
             <p class="tt-auth-sub">Join TraceTrack — SLSU Main Campus</p>
 
+            <!-- Registration form submits to register controller -->
             <form action="/controllers/auth/register.php" method="POST" id="registerForm">
-                <?= csrf_field() ?>
+                <?= csrf_field() ?> <!-- CSRF protection token -->
 
                 <div class="tt-form-group">
                     <label>Full Name</label>
@@ -82,6 +91,7 @@ ob_start();
                         <label>Password</label>
                         <div class="tt-input-wrap">
                             <input type="password" name="password" id="regPassword" class="tt-input" placeholder="Min. 8 chars" required>
+                            <!-- Password visibility toggle -->
                             <button type="button" class="tt-eye-btn" onclick="togglePass('regPassword', this)">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -91,6 +101,7 @@ ob_start();
                         <label>Confirm Password</label>
                         <div class="tt-input-wrap">
                             <input type="password" name="confirm" id="regConfirm" class="tt-input" placeholder="Repeat password" required>
+                            <!-- Confirm password visibility toggle -->
                             <button type="button" class="tt-eye-btn" onclick="togglePass('regConfirm', this)">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -110,7 +121,9 @@ ob_start();
     </div>
 </div>
 
+<!-- JavaScript for password visibility and client-side validation -->
 <script>
+// Toggle password field visibility
 function togglePass(id, btn) {
     const input = document.getElementById(id);
     const icon  = btn.querySelector('i');
@@ -123,18 +136,24 @@ function togglePass(id, btn) {
     }
 }
 
-// Client-side password match check
+// Client-side password match validation before submission
 document.getElementById('registerForm').addEventListener('submit', function (e) {
     const pw  = document.getElementById('regPassword').value;
     const cpw = document.getElementById('regConfirm').value;
     if (pw !== cpw) {
-        e.preventDefault();
-        Swal.fire({ title: 'Error!', text: 'Passwords do not match.', icon: 'error', confirmButtonColor: '#1565C0' });
+        e.preventDefault(); // Stop form submission
+        Swal.fire({ 
+            title: 'Error!', 
+            text: 'Passwords do not match.', 
+            icon: 'error', 
+            confirmButtonColor: '#1565C0' 
+        });
     }
 });
 </script>
 
 <?php
+// Capture buffered content and include layout template
 $content = ob_get_clean();
 include __DIR__ . '/../auth_layout.php';
 ?>
