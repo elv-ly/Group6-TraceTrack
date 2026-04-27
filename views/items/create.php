@@ -1,19 +1,26 @@
 <?php
+// Load required dependencies
 require_once __DIR__ . '/../../autoload.php';
+
+// Ensure user is logged in
 requireLogin();
 
+// Get report type from URL (lost or found), default to 'lost'
 $report_type = $_GET['type'] ?? 'lost';
 if (!in_array($report_type, ['lost', 'found'])) $report_type = 'lost';
 
+// Set page variables based on report type
 $is_lost  = $report_type === 'lost';
 $title    = $is_lost ? 'Report Lost Item' : 'Report Found Item';
 $icon     = $is_lost ? 'bi-search' : 'bi-box-seam';
 $color    = $is_lost ? '#EF9A9A' : '#A5D6A7';
-$today    = date('Y-m-d');
+$today    = date('Y-m-d'); // Max date for date picker
 
+// Start output buffering
 ob_start();
 ?>
 
+<!-- Page Header -->
 <div class="tt-page-header">
     <div>
         <h1><i class="bi <?= $icon ?>" style="color:<?= $color ?>"></i> <?= $title ?></h1>
@@ -24,7 +31,7 @@ ob_start();
     </div>
 </div>
 
-<!-- Type Toggle -->
+<!-- Type Toggle (Switch between Lost/Found forms) -->
 <div class="tt-type-toggle mb-4">
     <a href="/views/items/create.php?type=lost"
        class="tt-type-btn <?= $is_lost ? 'active' : '' ?>">
@@ -36,6 +43,7 @@ ob_start();
     </a>
 </div>
 
+<!-- Main Form Card -->
 <div class="tt-card">
     <div class="tt-card-header">
         <h5><i class="bi bi-clipboard-plus"></i>
@@ -43,10 +51,12 @@ ob_start();
         </h5>
     </div>
     <div class="tt-card-body">
+        <!-- Form submits to create.php controller -->
         <form action="/controllers/items/create.php" method="POST" enctype="multipart/form-data" id="itemForm">
-            <?= csrf_field() ?>
+            <?= csrf_field() ?> <!-- CSRF protection -->
             <input type="hidden" name="report_type" value="<?= $report_type ?>">
 
+            <!-- Row 1: Item Name & Category -->
             <div class="tt-form-row">
                 <div class="tt-form-group">
                     <label>Item Name <span class="tt-required">*</span></label>
@@ -67,6 +77,7 @@ ob_start();
                 </div>
             </div>
 
+            <!-- Description Field -->
             <div class="tt-form-group">
                 <label>Description <span class="tt-required">*</span></label>
                 <textarea name="description" class="tt-input tt-textarea" rows="4"
@@ -76,6 +87,7 @@ ob_start();
                     required></textarea>
             </div>
 
+            <!-- Row 2: Location & Date -->
             <div class="tt-form-row">
                 <div class="tt-form-group">
                     <label><?= $is_lost ? 'Last Known Location' : 'Location Found' ?> <span class="tt-required">*</span></label>
@@ -88,6 +100,7 @@ ob_start();
                 </div>
             </div>
 
+            <!-- Photo Upload with Preview -->
             <div class="tt-form-group">
                 <label>Photo <span class="tt-muted-label">(Optional — JPG, PNG, WEBP, max 5MB)</span></label>
                 <div class="tt-file-drop" id="fileDrop">
@@ -103,12 +116,14 @@ ob_start();
                 </div>
             </div>
 
+            <!-- Info Notice -->
             <div class="tt-form-info">
                 <i class="bi bi-info-circle"></i>
                 Your report will be submitted for <strong>admin review</strong> before it appears publicly.
                 You will be notified once it is approved or rejected.
             </div>
 
+            <!-- Form Actions -->
             <div class="d-flex gap-2 mt-3">
                 <button type="submit" class="tt-btn-primary" style="max-width:200px;">
                     <i class="bi bi-send"></i> Submit Report
@@ -121,6 +136,7 @@ ob_start();
     </div>
 </div>
 
+<!-- Inline Styles -->
 <style>
 .tt-type-toggle { display:flex; gap:.75rem; }
 
@@ -176,9 +192,11 @@ ob_start();
 .tt-form-info i { color:var(--blue-glow); margin-top:.1rem; flex-shrink:0; }
 </style>
 
+<!-- External JavaScript for file upload handling -->
 <script src="/views/items/create-js.js"></script>
 
 <?php
+// Capture buffered content and include layout template
 $content = ob_get_clean();
 include __DIR__ . '/../layout.php';
 ?>
