@@ -5,6 +5,7 @@ class Item {
     private $conn;
     private $table = "ITEMS";
 
+    // Item properties
     public $item_id;
     public $user_id;
     public $report_type;
@@ -20,7 +21,7 @@ class Item {
         $this->conn = $db;
     }
 
-    // ── CREATE REPORT ─────────────────────────────────────────────
+    // Create new lost/found report
     public function create() {
         try {
             $query = "INSERT INTO " . $this->table . "
@@ -41,9 +42,7 @@ class Item {
             ]);
 
             $new_id = $this->conn->lastInsertId();
-
-            // Notify admin
-            $this->notifyAdmin($new_id, $this->report_type);
+            $this->notifyAdmin($new_id, $this->report_type); // Alert admin
 
             return ["status" => true, "message" => "Report submitted successfully! Awaiting admin review."];
 
@@ -52,7 +51,7 @@ class Item {
         }
     }
 
-    // ── READ ALL (public active items) ────────────────────────────
+    // Get all active items (optionally filtered by type: lost/found)
     public function readAll($type = null) {
         try {
             $sql = "SELECT i.*, u.full_name, u.contact
@@ -71,7 +70,7 @@ class Item {
         }
     }
 
-    // ── READ MY REPORTS ───────────────────────────────────────────
+    // Get all reports by a specific user
     public function readMyReports($user_id) {
         try {
             $query = "SELECT * FROM " . $this->table . "
@@ -85,7 +84,7 @@ class Item {
         }
     }
 
-    // ── READ ONE ──────────────────────────────────────────────────
+    // Get single item by ID (with owner details)
     public function readOne($item_id) {
         try {
             $query = "SELECT i.*, u.full_name, u.contact, u.email
@@ -100,7 +99,7 @@ class Item {
         }
     }
 
-    // ── READ ALL FOR ADMIN ────────────────────────────────────────
+    // Get all items for admin panel (all statuses)
     public function readAllAdmin() {
         try {
             $query = "SELECT i.*, u.full_name
@@ -115,10 +114,10 @@ class Item {
         }
     }
 
-    // ── REQUEST DELETION ──────────────────────────────────────────
+    // Request deletion of user's own item (needs admin approval)
     public function requestDeletion($item_id, $user_id, $reason) {
         try {
-            // Check if already pending
+            // Check if pending request already exists
             $check = $this->conn->prepare("SELECT deletion_id FROM DELETION_REQUESTS WHERE item_id = :item_id AND status = 'pending' LIMIT 1");
             $check->execute([':item_id' => $item_id]);
             if ($check->rowCount() > 0) {
@@ -133,35 +132,38 @@ class Item {
                 ':reason'  => htmlspecialchars(strip_tags($reason)),
             ]);
 
-            // Notify admin
-            $this->notifyAdminDeletion($item_id);
-
+            $this->notifyAdminDeletion($item_id); // Alert admin
             return ["status" => true, "message" => "Deletion request submitted. Awaiting admin approval."];
         } catch (Throwable $e) {
             return ["status" => false, "message" => $e->getMessage()];
         }
     }
 
-    // ── UPLOAD PHOTO ──────────────────────────────────────────────
+    // Handle item photo upload
     public static function uploadPhoto($file) {
         $allowed     = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
         $max_size    = 5 * 1024 * 1024; // 5MB
         $upload_dir  = $_SERVER['DOCUMENT_ROOT'] . '/uploads/items/';
 
+        // Validate file type
         if (!in_array($file['type'], $allowed)) {
             return ["status" => false, "message" => "Only JPG, PNG, and WEBP images are allowed."];
         }
 
+        // Validate file size
         if ($file['size'] > $max_size) {
             return ["status" => false, "message" => "Image must be 5MB or less."];
         }
 
+        // Create upload directory if missing
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
 
+        // Generate unique filename
         $ext      = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = uniqid('item_', true) . '.' . $ext;
         $dest     = $upload_dir . $filename;
 
+        // Move uploaded file
         if (!move_uploaded_file($file['tmp_name'], $dest)) {
             return ["status" => false, "message" => "Failed to save the image. Please try again."];
         }
@@ -169,7 +171,7 @@ class Item {
         return ["status" => true, "path" => '/uploads/items/' . $filename];
     }
 
-    // ── NOTIFY ADMIN (new report) ─────────────────────────────────
+    // Send notification to admin when new report is created
     private function notifyAdmin($item_id, $report_type) {
         try {
             $admin = $this->conn->prepare("SELECT user_id FROM USERS WHERE role = 'admin' LIMIT 1");
@@ -186,7 +188,7 @@ class Item {
         } catch (Throwable $e) {}
     }
 
-    // ── NOTIFY ADMIN (deletion request) ──────────────────────────
+    // Send notification to admin when deletion is requested
     private function notifyAdminDeletion($item_id) {
         try {
             $admin = $this->conn->prepare("SELECT user_id FROM USERS WHERE role = 'admin' LIMIT 1");
