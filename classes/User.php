@@ -14,6 +14,7 @@ class User {
     public $id_number;
     public $contact;
 
+    // Constructor: inject database connection
     public function __construct($db) {
         $this->conn = $db;
     }
@@ -48,7 +49,7 @@ class User {
         }
     }
 
-    // Authenticate user login
+    // Authenticate user login (only if account is active)
     public function login() {
         try {
             $query = "SELECT * FROM " . $this->table . " WHERE email = :email AND is_active = 1 LIMIT 1";
@@ -85,13 +86,13 @@ class User {
         }
     }
 
-    // Get single user by ID (decrypted ID)
+    // Get single user by ID (with decrypted ID)
     public function readOne() {
         try {
             $query = "SELECT user_id, full_name, email, role, id_number, contact FROM " . $this->table . "
                       WHERE user_id = :user_id LIMIT 1";
             $stmt = $this->conn->prepare($query);
-            $id   = decryptId($this->user_id); // Decrypt ID from URL
+            $id   = decryptId($this->user_id); // Decrypt encrypted ID from URL
             $stmt->bindParam(':user_id', $id);
             $stmt->execute();
             return $stmt->fetch();
@@ -100,7 +101,7 @@ class User {
         }
     }
 
-    // Update user profile
+    // Update user profile (name and contact only)
     public function update() {
         try {
             $query = "UPDATE " . $this->table . "
@@ -170,7 +171,7 @@ class User {
         try {
             $stats = [];
             if ($role === 'admin') {
-                // Admin stats
+                // Admin statistics
                 $queries = [
                     'total_users'       => "SELECT COUNT(*) FROM USERS WHERE role != 'admin'",
                     'total_reports'     => "SELECT COUNT(*) FROM ITEMS",
@@ -180,7 +181,7 @@ class User {
                     'pending_deletions' => "SELECT COUNT(*) FROM DELETION_REQUESTS WHERE status = 'pending'",
                 ];
             } else {
-                // Regular user stats
+                // Regular user statistics
                 $queries = [
                     'my_reports'  => "SELECT COUNT(*) FROM ITEMS WHERE user_id = " . (int)$user_id,
                     'my_claims'   => "SELECT COUNT(*) FROM CLAIMS WHERE claimant_id = " . (int)$user_id,
@@ -188,6 +189,7 @@ class User {
                     'found_items' => "SELECT COUNT(*) FROM ITEMS WHERE report_type = 'found' AND status = 'active'",
                 ];
             }
+            // Execute all queries
             foreach ($queries as $key => $sql) {
                 $stmt = $this->conn->prepare($sql);
                 $stmt->execute();

@@ -17,11 +17,12 @@ class Item {
     public $photo;
     public $status;
 
+    // Constructor: inject database connection
     public function __construct($db) {
         $this->conn = $db;
     }
 
-    // Create new lost/found report
+    // Create new lost/found item report
     public function create() {
         try {
             $query = "INSERT INTO " . $this->table . "
@@ -51,7 +52,7 @@ class Item {
         }
     }
 
-    // Get all active items (optionally filtered by type: lost/found)
+    // Get all active items (public feed), optionally filtered by lost/found
     public function readAll($type = null) {
         try {
             $sql = "SELECT i.*, u.full_name, u.contact
@@ -70,7 +71,7 @@ class Item {
         }
     }
 
-    // Get all reports by a specific user
+    // Get all reports submitted by a specific user
     public function readMyReports($user_id) {
         try {
             $query = "SELECT * FROM " . $this->table . "
@@ -84,7 +85,7 @@ class Item {
         }
     }
 
-    // Get single item by ID (with owner details)
+    // Get single item by ID with reporter details
     public function readOne($item_id) {
         try {
             $query = "SELECT i.*, u.full_name, u.contact, u.email
@@ -99,7 +100,7 @@ class Item {
         }
     }
 
-    // Get all items for admin panel (all statuses)
+    // Get all items for admin panel (all statuses included)
     public function readAllAdmin() {
         try {
             $query = "SELECT i.*, u.full_name
@@ -114,10 +115,10 @@ class Item {
         }
     }
 
-    // Request deletion of user's own item (needs admin approval)
+    // Request deletion of user's own item (requires admin approval)
     public function requestDeletion($item_id, $user_id, $reason) {
         try {
-            // Check if pending request already exists
+            // Check for existing pending request
             $check = $this->conn->prepare("SELECT deletion_id FROM DELETION_REQUESTS WHERE item_id = :item_id AND status = 'pending' LIMIT 1");
             $check->execute([':item_id' => $item_id]);
             if ($check->rowCount() > 0) {
@@ -139,7 +140,7 @@ class Item {
         }
     }
 
-    // Handle item photo upload
+    // Handle item photo upload with validation
     public static function uploadPhoto($file) {
         $allowed     = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
         $max_size    = 5 * 1024 * 1024; // 5MB
@@ -155,7 +156,7 @@ class Item {
             return ["status" => false, "message" => "Image must be 5MB or less."];
         }
 
-        // Create upload directory if missing
+        // Create directory if missing
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
 
         // Generate unique filename
