@@ -1,12 +1,17 @@
 <?php
+// Page title
 $title = "My Reports";
+
+// Load dependencies and ensure user is logged in
 require_once __DIR__ . '/../../autoload.php';
 requireLogin();
 
+// Get current user and their reports
 $me      = sessionUser();
 $item    = new Item($db);
 $reports = $item->readMyReports($me['id']);
 
+// Helper function to generate status badges
 function statusBadge($status) {
     $map = [
         'pending_review' => ['gold',   'hourglass-split', 'Pending Review'],
@@ -20,9 +25,11 @@ function statusBadge($status) {
     return "<span class='tt-badge tt-badge-{$s[0]}'><i class='bi bi-{$s[1]}'></i> {$s[2]}</span>";
 }
 
+// Start output buffering
 ob_start();
 ?>
 
+<!-- Page Header -->
 <div class="tt-page-header">
     <div>
         <h1>My Reports</h1>
@@ -38,8 +45,10 @@ ob_start();
     </div>
 </div>
 
+<!-- CSRF token for deletion requests -->
 <?= csrf_field() ?>
 
+<!-- Reports Table -->
 <div class="tt-card">
     <div class="tt-card-header">
         <h5><i class="bi bi-file-earmark-text"></i> My Submitted Reports</h5>
@@ -61,6 +70,7 @@ ob_start();
             </thead>
             <tbody>
                 <?php if (empty($reports)): ?>
+                <!-- Empty state -->
                 <tr>
                     <td colspan="8" class="text-center text-muted py-4">
                         <i class="bi bi-inbox fs-3 d-block mb-2"></i>
@@ -69,14 +79,17 @@ ob_start();
                     </td>
                 </tr>
                 <?php else: ?>
+                <!-- Loop through reports -->
                 <?php foreach ($reports as $row): ?>
                 <tr>
+                    <!-- Item column with photo indicator -->
                     <td>
                         <div class="tt-item-name"><?= htmlspecialchars($row['item_name']) ?></div>
                         <?php if ($row['photo']): ?>
                             <small class="text-muted"><i class="bi bi-image"></i> Has photo</small>
                         <?php endif; ?>
                     </td>
+                    <!-- Type badge -->
                     <td>
                         <?php if ($row['report_type'] === 'lost'): ?>
                             <span class="tt-badge tt-badge-red"><i class="bi bi-search"></i> Lost</span>
@@ -89,7 +102,10 @@ ob_start();
                     <td><?= date('M d, Y', strtotime($row['date_occured'])) ?></td>
                     <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
                     <td><?= statusBadge($row['status']) ?></td>
+                    
+                    <!-- Action buttons -->
                     <td class="text-center text-nowrap">
+                        <!-- Show delete button only for pending or active reports -->
                         <?php if (in_array($row['status'], ['pending_review', 'active'])): ?>
                         <button class="tt-btn-outline-sm tt-delete-btn"
                             data-id="<?= encryptId($row['item_id']) ?>"
@@ -102,6 +118,7 @@ ob_start();
                             <span class="tt-badge tt-badge-muted">No actions</span>
                         <?php endif; ?>
 
+                        <!-- Show admin note if exists -->
                         <?php if ($row['admin_note']): ?>
                         <div class="tt-admin-note mt-1">
                             <i class="bi bi-chat-left-text"></i>
@@ -147,6 +164,7 @@ ob_start();
     </div>
 </div>
 
+<!-- Inline Styles -->
 <style>
 .tt-item-name { font-weight:500; }
 .tt-badge { display:inline-flex; align-items:center; gap:.3rem; padding:.22rem .65rem; border-radius:99px; font-size:.75rem; font-weight:600; }
@@ -163,9 +181,11 @@ ob_start();
 .tt-modal .modal-footer { border-color:var(--border); }
 </style>
 
+<!-- External JavaScript for delete modal handling -->
 <script src="/views/items/items-js.js"></script>
 
 <?php
+// Capture buffered content and include layout
 $content = ob_get_clean();
 include __DIR__ . '/../layout.php';
 ?>
