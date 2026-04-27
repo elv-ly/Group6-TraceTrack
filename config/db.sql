@@ -1,9 +1,17 @@
+-- =====================================================
+-- TRACETRACK - Campus Lost & Found System Database
+-- =====================================================
+
+-- Create database with proper character encoding
 CREATE DATABASE IF NOT EXISTS tracetrack
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
 USE tracetrack;
 
+-- =====================================================
+-- TABLE: USERS (System users: students, faculty, admin)
+-- =====================================================
 CREATE TABLE USERS
 (
   user_id    INT UNSIGNED AUTO_INCREMENT       NOT NULL,
@@ -19,6 +27,9 @@ CREATE TABLE USERS
   PRIMARY KEY (user_id)
 );
 
+-- =====================================================
+-- TABLE: ITEMS (Lost/Found item reports)
+-- =====================================================
 CREATE TABLE ITEMS
 (
   item_id      INT UNSIGNED AUTO_INCREMENT                                               NOT NULL,
@@ -39,6 +50,9 @@ CREATE TABLE ITEMS
   PRIMARY KEY (item_id)
 );
 
+-- =====================================================
+-- TABLE: CLAIMS (User claims on found items)
+-- =====================================================
 CREATE TABLE CLAIMS
 (
   claim_id        INT UNSIGNED AUTO_INCREMENT                      NOT NULL,
@@ -55,6 +69,9 @@ CREATE TABLE CLAIMS
   PRIMARY KEY (claim_id)
 );
 
+-- =====================================================
+-- TABLE: DELETION_REQUESTS (User requests to delete items)
+-- =====================================================
 CREATE TABLE DELETION_REQUESTS
 (
   deletion_id INT UNSIGNED AUTO_INCREMENT           NOT NULL,
@@ -69,6 +86,9 @@ CREATE TABLE DELETION_REQUESTS
   PRIMARY KEY (deletion_id)
 );
 
+-- =====================================================
+-- TABLE: NOTIFICATIONS (System notifications for users)
+-- =====================================================
 CREATE TABLE NOTIFICATIONS
 (
   notification_id INT UNSIGNED AUTO_INCREMENT                                                                                                                                                                                      NOT NULL,
@@ -82,47 +102,66 @@ CREATE TABLE NOTIFICATIONS
   PRIMARY KEY (notification_id)
 );
 
--- Unique & Foreign Keys
+-- =====================================================
+-- CONSTRAINTS: Unique & Foreign Keys
+-- =====================================================
+
+-- Email must be unique across all users
 ALTER TABLE USERS
   ADD CONSTRAINT UQ_email UNIQUE (email);
 
+-- Items belong to users (reporters)
 ALTER TABLE ITEMS
   ADD CONSTRAINT FK_USERS_TO_ITEMS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
+-- Claims belong to users (claimants)
 ALTER TABLE CLAIMS
   ADD CONSTRAINT FK_USERS_TO_CLAIMS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
+-- Claims reference specific items
 ALTER TABLE CLAIMS
   ADD CONSTRAINT FK_ITEMS_TO_CLAIMS
     FOREIGN KEY (item_id) REFERENCES ITEMS (item_id);
 
+-- Deletion requests reference items
 ALTER TABLE DELETION_REQUESTS
   ADD CONSTRAINT FK_ITEMS_TO_DELETION_REQUESTS
     FOREIGN KEY (item_id) REFERENCES ITEMS (item_id);
 
+-- Deletion requests belong to users who requested them
 ALTER TABLE DELETION_REQUESTS
   ADD CONSTRAINT FK_USERS_TO_DELETION_REQUESTS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
+-- Notifications belong to users
 ALTER TABLE NOTIFICATIONS
   ADD CONSTRAINT FK_USERS_TO_NOTIFICATIONS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
+-- =====================================================
+-- ALTERATIONS: Add cancel_requested status to claims
+-- =====================================================
 ALTER TABLE CLAIMS MODIFY status 
 ENUM('pending','approved','rejected','returned','cancel_requested') 
 NOT NULL DEFAULT 'pending';
 
--- Default admin account (password: Admin@1234)
+-- =====================================================
+-- SEED DATA: Default admin account
+-- Password: Admin@1234 (hashed with BCRYPT)
+-- =====================================================
 INSERT INTO USERS (full_name, email, password, role, id_number, contact)
 VALUES (
   'System Administrator',
   'admin@tracetrack.edu.ph',
-  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- 'Admin@1234'
   'admin',
   'ADMIN-001',
   '09000000000'
 );
 
+-- =====================================================
+-- VERIFICATION: List all users
+-- =====================================================
 SELECT * FROM USERS;
