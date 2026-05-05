@@ -90,6 +90,10 @@ ob_start();
                     <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
                     <td><?= statusBadge($row['status']) ?></td>
                     <td class="text-center text-nowrap">
+                        <a href="/views/items/view.php?id=<?= $row['item_id'] ?>"
+                           class="tt-btn-outline-sm mb-1">
+                            <i class="bi bi-eye"></i> View
+                        </a>
                         <?php if (in_array($row['status'], ['pending_review', 'active'])): ?>
                         <button class="tt-btn-outline-sm tt-delete-btn"
                             data-id="<?= encryptId($row['item_id']) ?>"
