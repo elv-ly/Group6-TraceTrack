@@ -5,7 +5,6 @@ class User {
     private $conn;
     private $table = "USERS";
 
-    // User properties
     public $user_id;
     public $full_name;
     public $email;
@@ -14,15 +13,13 @@ class User {
     public $id_number;
     public $contact;
 
-    // Constructor: inject database connection
     public function __construct($db) {
         $this->conn = $db;
     }
 
-    // Create new user account
+    // ── REGISTER ─────────────────────────────────────────────────
     public function register() {
         try {
-            // Check if email already exists
             if ($this->emailExists()) {
                 return ["status" => false, "message" => "Email is already registered."];
             }
@@ -36,7 +33,7 @@ class User {
             $stmt->execute([
                 ':full_name' => htmlspecialchars(strip_tags($this->full_name)),
                 ':email'     => htmlspecialchars(strip_tags($this->email)),
-                ':password'  => password_hash($this->password, PASSWORD_BCRYPT), // Hash password
+                ':password'  => password_hash($this->password, PASSWORD_BCRYPT),
                 ':role'      => $this->role ?? 'student',
                 ':id_number' => htmlspecialchars(strip_tags($this->id_number)),
                 ':contact'   => htmlspecialchars(strip_tags($this->contact)),
@@ -49,7 +46,7 @@ class User {
         }
     }
 
-    // Authenticate user login (only if account is active)
+    // ── LOGIN ─────────────────────────────────────────────────────
     public function login() {
         try {
             $query = "SELECT * FROM " . $this->table . " WHERE email = :email AND is_active = 1 LIMIT 1";
@@ -61,7 +58,6 @@ class User {
                 return ["status" => false, "message" => "No account found with that email."];
             }
 
-            // Verify password
             if (!password_verify($this->password, $user['password'])) {
                 return ["status" => false, "message" => "Incorrect password."];
             }
@@ -73,7 +69,7 @@ class User {
         }
     }
 
-    // Get all users (admin only)
+    // ── READ ALL (admin) ──────────────────────────────────────────
     public function read() {
         try {
             $query = "SELECT user_id, full_name, email, role, id_number, contact, is_active, created_at
@@ -86,14 +82,13 @@ class User {
         }
     }
 
-    // Get single user by ID (with decrypted ID)
+    // ── READ ONE ──────────────────────────────────────────────────
     public function readOne() {
         try {
-            $query = "SELECT user_id, full_name, email, role, id_number, contact FROM " . $this->table . "
+            $query = "SELECT user_id, full_name, email, role, id_number, contact, first_login_seen FROM " . $this->table . "
                       WHERE user_id = :user_id LIMIT 1";
             $stmt = $this->conn->prepare($query);
-            $id   = decryptId($this->user_id); // Decrypt encrypted ID from URL
-            $stmt->bindParam(':user_id', $id);
+            $stmt->bindParam(':user_id', $this->user_id);
             $stmt->execute();
             return $stmt->fetch();
         } catch (Throwable $e) {
@@ -101,7 +96,7 @@ class User {
         }
     }
 
-    // Update user profile (name and contact only)
+    // ── UPDATE PROFILE ────────────────────────────────────────────
     public function update() {
         try {
             $query = "UPDATE " . $this->table . "
@@ -119,10 +114,9 @@ class User {
         }
     }
 
-    // Change user password (requires current password)
+    // ── CHANGE PASSWORD ───────────────────────────────────────────
     public function changePassword($current_password, $new_password) {
         try {
-            // Verify current password
             $query = "SELECT password FROM " . $this->table . " WHERE user_id = :user_id LIMIT 1";
             $stmt  = $this->conn->prepare($query);
             $stmt->execute([':user_id' => $this->user_id]);
@@ -132,7 +126,6 @@ class User {
                 return ["status" => false, "message" => "Current password is incorrect."];
             }
 
-            // Update with new password
             $query2 = "UPDATE " . $this->table . " SET password = :password, updated_at = NOW() WHERE user_id = :user_id";
             $stmt2  = $this->conn->prepare($query2);
             $stmt2->execute([
@@ -146,7 +139,7 @@ class User {
         }
     }
 
-    // Activate/deactivate user account (admin only)
+    // ── TOGGLE ACTIVE (admin) ─────────────────────────────────────
     public function toggleActive($user_id, $status) {
         try {
             $query = "UPDATE " . $this->table . " SET is_active = :status WHERE user_id = :user_id";
@@ -158,7 +151,19 @@ class User {
         }
     }
 
-    // Check if email already exists in database
+    // ── HELPERS ───────────────────────────────────────────────────
+    public function getAllUsers() {
+        try {
+            $query = "SELECT user_id, full_name, email, role, id_number, contact, is_active, created_at
+                      FROM " . $this->table . " ORDER BY created_at DESC";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll();
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
     public function emailExists() {
         $query = "SELECT user_id FROM " . $this->table . " WHERE email = :email LIMIT 1";
         $stmt  = $this->conn->prepare($query);
@@ -166,12 +171,10 @@ class User {
         return $stmt->rowCount() > 0;
     }
 
-    // Get dashboard statistics (admin or regular user)
     public function getDashboardStats($user_id, $role) {
         try {
             $stats = [];
             if ($role === 'admin') {
-                // Admin statistics
                 $queries = [
                     'total_users'       => "SELECT COUNT(*) FROM USERS WHERE role != 'admin'",
                     'total_reports'     => "SELECT COUNT(*) FROM ITEMS",
@@ -180,20 +183,27 @@ class User {
                     'total_returned'    => "SELECT COUNT(*) FROM ITEMS WHERE status = 'returned'",
                     'pending_deletions' => "SELECT COUNT(*) FROM DELETION_REQUESTS WHERE status = 'pending'",
                 ];
+                foreach ($queries as $key => $sql) {
+                    $stmt = $this->conn->prepare($sql);
+                    $stmt->execute();
+                    $stats[$key] = $stmt->fetchColumn();
+                }
             } else {
-                // Regular user statistics
+                // For student users - use parameterized queries
                 $queries = [
-                    'my_reports'  => "SELECT COUNT(*) FROM ITEMS WHERE user_id = " . (int)$user_id,
-                    'my_claims'   => "SELECT COUNT(*) FROM CLAIMS WHERE claimant_id = " . (int)$user_id,
+                    'my_reports'  => "SELECT COUNT(*) FROM ITEMS WHERE user_id = :user_id",
+                    'my_claims'   => "SELECT COUNT(*) FROM CLAIMS WHERE user_id = :user_id",
                     'lost_items'  => "SELECT COUNT(*) FROM ITEMS WHERE report_type = 'lost' AND status = 'active'",
                     'found_items' => "SELECT COUNT(*) FROM ITEMS WHERE report_type = 'found' AND status = 'active'",
                 ];
-            }
-            // Execute all queries
-            foreach ($queries as $key => $sql) {
-                $stmt = $this->conn->prepare($sql);
-                $stmt->execute();
-                $stats[$key] = $stmt->fetchColumn();
+                foreach ($queries as $key => $sql) {
+                    $stmt = $this->conn->prepare($sql);
+                    if ($key === 'my_reports' || $key === 'my_claims') {
+                        $stmt->bindParam(':user_id', $user_id);
+                    }
+                    $stmt->execute();
+                    $stats[$key] = $stmt->fetchColumn();
+                }
             }
             return $stats;
         } catch (Throwable $e) {
