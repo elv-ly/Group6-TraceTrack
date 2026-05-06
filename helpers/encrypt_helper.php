@@ -10,6 +10,9 @@ function encryptId($id) {
 }
 
 function decryptId($data) {
+    if (!$data) {
+        return null;
+    }
     $key  = hash('sha256', APP_KEY);
     $data = base64_decode($data);
     $iv   = substr($data, 0, 16);

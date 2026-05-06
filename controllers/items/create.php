@@ -20,6 +20,12 @@ $allowed_types      = ['lost', 'found'];
 $allowed_categories = ['electronics','clothing','documents','accessories','keys','others'];
 
 // Validation
+if (!$me['id']) {
+    $_SESSION['error'] = 'Session error. Please log in again.';
+    header("Location: /views/auth/login.php");
+    exit;
+}
+
 if (!in_array($report_type, $allowed_types)) {
     $_SESSION['error'] = 'Invalid report type.';
     header("Location: /views/items/create.php?type=lost");

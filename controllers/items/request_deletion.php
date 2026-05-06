@@ -9,9 +9,12 @@ if (!csrf_check()) {
     exit;
 }
 
-$me      = sessionUser();
-$item_id = intval($_POST['item_id'] ?? 0);
-$reason  = trim($_POST['reason'] ?? '');
+$me        = sessionUser();
+$encrypted_id = $_POST['item_id'] ?? '';
+$reason    = trim($_POST['reason'] ?? '');
+
+// Decrypt the item_id
+$item_id   = intval(decryptId($encrypted_id));
 
 if (!$item_id || !$reason) {
     echo json_encode(["status" => false, "message" => "Item and reason are required."]);
