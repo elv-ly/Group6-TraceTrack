@@ -1,17 +1,9 @@
--- =====================================================
--- TRACETRACK - Campus Lost & Found System Database
--- =====================================================
-
--- Create database with proper character encoding
 CREATE DATABASE IF NOT EXISTS tracetrack
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
 USE tracetrack;
 
--- =====================================================
--- TABLE: USERS (System users: students, faculty, admin)
--- =====================================================
 CREATE TABLE USERS
 (
   user_id    INT UNSIGNED AUTO_INCREMENT       NOT NULL,
@@ -22,14 +14,12 @@ CREATE TABLE USERS
   id_number  VARCHAR(50)                       NOT NULL,
   contact    VARCHAR(20)                       NOT NULL,
   is_active  TINYINT(1)                        NOT NULL DEFAULT 1,
+  first_login_seen TINYINT(1)                  NOT NULL DEFAULT 0,
   created_at TIMESTAMP                         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP                         NULL,
   PRIMARY KEY (user_id)
 );
 
--- =====================================================
--- TABLE: ITEMS (Lost/Found item reports)
--- =====================================================
 CREATE TABLE ITEMS
 (
   item_id      INT UNSIGNED AUTO_INCREMENT                                               NOT NULL,
@@ -50,9 +40,6 @@ CREATE TABLE ITEMS
   PRIMARY KEY (item_id)
 );
 
--- =====================================================
--- TABLE: CLAIMS (User claims on found items)
--- =====================================================
 CREATE TABLE CLAIMS
 (
   claim_id        INT UNSIGNED AUTO_INCREMENT                      NOT NULL,
@@ -69,9 +56,30 @@ CREATE TABLE CLAIMS
   PRIMARY KEY (claim_id)
 );
 
--- =====================================================
--- TABLE: DELETION_REQUESTS (User requests to delete items)
--- =====================================================
+CREATE TABLE RETURNS (
+    return_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    item_id INT UNSIGNED NOT NULL,
+    finder_id INT UNSIGNED NOT NULL,
+    found_location VARCHAR(255) NOT NULL,
+    finder_description TEXT,
+    proof_photo VARCHAR(255),
+    status ENUM('admin_pending', 'admin_approved', 'admin_rejected', 'owner_notified', 'completed', 'failed', 'cancelled') DEFAULT 'admin_pending',
+    admin_approved TINYINT(1) DEFAULT 0,
+    admin_reviewed_at TIMESTAMP NULL,
+    admin_reviewed_by INT UNSIGNED NULL,
+    coordinates VARCHAR(255) NULL,
+    deadline DATETIME NULL,
+    failure_reason TEXT NULL,
+    admin_note TEXT NULL,
+    owner_confirmed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL,
+    FOREIGN KEY (item_id) REFERENCES ITEMS(item_id) ON DELETE CASCADE,
+    FOREIGN KEY (finder_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
+    FOREIGN KEY (finder_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
+
 CREATE TABLE DELETION_REQUESTS
 (
   deletion_id INT UNSIGNED AUTO_INCREMENT           NOT NULL,
@@ -86,13 +94,10 @@ CREATE TABLE DELETION_REQUESTS
   PRIMARY KEY (deletion_id)
 );
 
--- =====================================================
--- TABLE: NOTIFICATIONS (System notifications for users)
--- =====================================================
 CREATE TABLE NOTIFICATIONS
 (
   notification_id INT UNSIGNED AUTO_INCREMENT                                                                                                                                                                                      NOT NULL,
-  type            ENUM('claim_submitted','claim_approved','claim_rejected','report_approved','report_rejected','deletion_approved','deletion_rejected','item_returned','new_report','new_claim','new_deletion_request','new_user') NOT NULL,
+  type            ENUM('claim_submitted','claim_approved','claim_rejected','report_approved','report_rejected','deletion_approved','deletion_rejected','item_returned','new_report','new_claim','new_deletion_request','new_user','return_request_submitted','return_request_approved','return_request_rejected','return_deadline_set','return_failed','return_completed') NOT NULL,
   is_read         TINYINT(1)                                                                                                                                                                                                       NOT NULL DEFAULT 0,
   message         TEXT                                                                                                                                                                                                             NOT NULL,
   reference_id    INT UNSIGNED                                                                                                                                                                                                     NULL,
@@ -102,66 +107,120 @@ CREATE TABLE NOTIFICATIONS
   PRIMARY KEY (notification_id)
 );
 
--- =====================================================
--- CONSTRAINTS: Unique & Foreign Keys
--- =====================================================
-
--- Email must be unique across all users
+-- Unique & Foreign Keys
 ALTER TABLE USERS
   ADD CONSTRAINT UQ_email UNIQUE (email);
 
--- Items belong to users (reporters)
 ALTER TABLE ITEMS
   ADD CONSTRAINT FK_USERS_TO_ITEMS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
--- Claims belong to users (claimants)
 ALTER TABLE CLAIMS
   ADD CONSTRAINT FK_USERS_TO_CLAIMS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
--- Claims reference specific items
 ALTER TABLE CLAIMS
   ADD CONSTRAINT FK_ITEMS_TO_CLAIMS
     FOREIGN KEY (item_id) REFERENCES ITEMS (item_id);
 
--- Deletion requests reference items
 ALTER TABLE DELETION_REQUESTS
   ADD CONSTRAINT FK_ITEMS_TO_DELETION_REQUESTS
     FOREIGN KEY (item_id) REFERENCES ITEMS (item_id);
 
--- Deletion requests belong to users who requested them
 ALTER TABLE DELETION_REQUESTS
   ADD CONSTRAINT FK_USERS_TO_DELETION_REQUESTS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
 
--- Notifications belong to users
 ALTER TABLE NOTIFICATIONS
   ADD CONSTRAINT FK_USERS_TO_NOTIFICATIONS
     FOREIGN KEY (user_id) REFERENCES USERS (user_id);
-
--- =====================================================
--- ALTERATIONS: Add cancel_requested status to claims
--- =====================================================
+    
 ALTER TABLE CLAIMS MODIFY status 
 ENUM('pending','approved','rejected','returned','cancel_requested') 
 NOT NULL DEFAULT 'pending';
 
--- =====================================================
--- SEED DATA: Default admin account
--- Password: Admin@1234 (hashed with BCRYPT)
--- =====================================================
+-- Default admin account (password: Admin@1234)
 INSERT INTO USERS (full_name, email, password, role, id_number, contact)
 VALUES (
   'System Administrator',
   'admin@tracetrack.edu.ph',
-  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- 'Admin@1234'
+  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
   'admin',
   'ADMIN-001',
   '09000000000'
 );
 
--- =====================================================
--- VERIFICATION: List all users
--- =====================================================
+
+UPDATE USERS 
+SET password = '$2y$12$Jv4Mj2n.XSf4PRb1YUzd5uLwfxD5b0D2I.jR1KKvWk5DC/FG.bGQS'
+WHERE email = 'admin@tracetrack.edu.ph';
+
+ALTER TABLE NOTIFICATIONS 
+MODIFY type ENUM('claim_submitted','claim_approved','claim_rejected','report_approved','report_rejected',
+                 'deletion_approved','deletion_rejected','item_returned','new_report','new_claim',
+                 'new_deletion_request','new_user','return_request','return_confirmed','return_rejected') 
+NOT NULL;
+
+-- Add first_login_seen column if it doesn't exist (for existing databases)
+ALTER TABLE USERS ADD COLUMN first_login_seen TINYINT(1) NOT NULL DEFAULT 0;
+
+
+
+-- 1. USERS table structure confirmed (no super_admin role needed)
+
+-- 2. Create Audit Log Table
+CREATE TABLE IF NOT EXISTS AUDIT_LOG (
+    log_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED,
+    action VARCHAR(100) NOT NULL,
+    details TEXT,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE SET NULL,
+    INDEX idx_user_id (user_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. Create System Config Table
+CREATE TABLE IF NOT EXISTS SYSTEM_CONFIG (
+    config_key VARCHAR(100) PRIMARY KEY,
+    config_value LONGTEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. Insert Default Configuration Values
+INSERT IGNORE INTO SYSTEM_CONFIG (config_key, config_value) VALUES
+('site_name', 'TraceTrack'),
+('contact_email', 'admin@tracetrack.edu.ph'),
+('max_upload_size', '5242880'),
+('item_expiry_days', '30'),
+('maintenance_mode', '0'),
+('global_announcement', '');
+
+-- All admin features now consolidated under the 'admin' role
+-- No separate super admin account needed
+
+-- 6. Create Maintenance Log (Optional)
+CREATE TABLE IF NOT EXISTS MAINTENANCE_LOG (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(100),
+    performed_by INT UNSIGNED,
+    performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (performed_by) REFERENCES USERS(user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Setup Complete!
+-- ============================================================
+-- 
+-- IMPORTANT STEPS:
+-- 1. Log in with: super@tracetrack.edu.ph / password
+-- 2. Change the super admin password immediately!
+-- 3. Go to Super Admin > Reset Passwords to change other users
+-- 4. The super admin menu will appear in the sidebar for super admin role
+-- 5. Regular admins will only see the Admin menu
+--
+-- ============================================================
+
 SELECT * FROM USERS;
+
